@@ -1,0 +1,196 @@
+<html class="no-js">
+<head>
+    <title>ScrumPoker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link rel="stylesheet" href="/vendor/bootstrap-3.3.7/css/bootstrap.min.css" >
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/vendor/vue/vue.min.js"></script>
+    <script src="/js/actions.js"></script>
+    <script src="/js/app.js"></script>
+</head>
+<body>
+
+<div id="app">
+
+    <nav class="navbar navbar-default">
+        <div class="container-fluid">
+            <!-- Brand and toggle get grouped for better mobile display -->
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" v-on:click="menuOpen = !menuOpen">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="javascript:" v-on:click="goTo('home')">ScrumPoker</a>
+            </div>
+
+            <!-- Collect the nav links, forms, and other content for toggling -->
+            <div class="navbar-collapse" v-bind:class="{collapse: !menuOpen}">
+                <ul class="nav navbar-nav navbar-right">
+                    <!--<li><a href="javascript:">About ScrumPoker</a></li>-->
+                    <li><a href="javascript:" v-on:click="goTo('poker')">Use Offline</a></li>
+                    <li><a href="javascript:" v-on:click="goTo('join')">Join a room</a></li>
+                    <li><a href="javascript:" v-on:click="createRoom()">Create a room</a></li>
+                    <li class="dropdown" v-bind:class="{open: menuSettingsOpen}">
+                        <a href="javascript:" v-on:click="menuSettingsOpen = !menuSettingsOpen"><i class="glyphicon glyphicon-cog"></i>&nbsp;&nbsp;Settings&nbsp;<span class="caret"></span></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="javascript:" v-on:click="showDebugLog = !showDebugLog"><i class="toggleCheckbox glyphicon"v-bind:class="[{'glyphicon-unchecked': !showDebugLog}, {'glyphicon-check': showDebugLog}]"></i>&nbsp;&nbsp;DebugMode</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+
+
+    <article class="page container-fluid" v-if="page === 'home'">
+        <div class="jumbotron">
+            <h1>Let's play ScrumPoker!</h1>
+            <p>Join your scrum team room or use the app offline!</p>
+            <p>
+                <a class="btn btn-success btn-lg" href="javascript:" v-on:click="goTo('join')">Join Room</a>
+                <a class="btn btn-primary btn-lg" href="javascript:" v-on:click="goTo('poker'), isOffline = true">Use Offline</a>
+            </p>
+        </div>
+        <p style="margin-top: -20px">Scrum Masters, <a href="javascript:" v-on:click="createRoom()">create the team room</a>!</p>
+    </article>
+
+
+
+    <article class="page container-fluid" v-if="page === 'join'">
+
+        <h2>Join Room</h2>
+
+        <div class="alert"
+             v-if="joinMessage"
+             v-bind:class="joinMessage.class"
+             v-html="joinMessage.html"
+        ></div>
+        <br>
+        <p>Please enter a username</p>
+        <label class="input-group">
+            <span class="input-group-addon"><i class="glyphicon glyphicon-user"></i></span>
+            <input type="text" class="form-control" placeholder="Username" v-model:value="session.user">
+        </label>
+        <br>
+        <p>Please enter the room id</p>
+        <label class="input-group">
+            <span class="input-group-addon"><i class="glyphicon glyphicon-log-in"></i></span>
+            <input type="text" class="form-control" placeholder="Room" v-model:value="session.room">
+        </label>
+        <br><br>
+        <button class="btn btn-primary" v-on:click="openWS()">Join the room</button>
+    </article>
+
+
+
+    <article class="page container-fluid" v-if="page === 'create'">
+
+    </article>
+
+
+
+    <article class="page" v-if="page === 'poker'">
+
+        <section class="container-fluid">
+            <div class="alert"
+                 v-if="message"
+                 v-bind:class="message.class"
+                 v-html="message.html"
+            ></div>
+        </section>
+
+        <section class="container-fluid" style="position: relative">
+            <ul class="list-inline" id="selection">
+                <li v-for="button in buttons">
+                    <div class="btn btn-primary"
+                         v-on:click="sendVote(button)"
+                         v-bind:data-value="button"
+                         v-bind:class="{'btn-info': button == session.userVote}"
+                         v-html="$options.filters.buttonHTML(button)"
+                    ></div>
+                </li>
+            </ul>
+            <div id="selectionMask"
+                 v-bind:class="{visible: !isOffline && !session.roomVote}"
+                 v-on:click="message = {class: 'alert-warning', html: 'Voting has not started yet!'}"
+            ></div>
+        </section>
+    </article>
+
+
+
+    <article class="page container-fluid" v-if="page === 'admin'">
+
+        <div class="row">
+            <div class="col-xs-7">
+                <div class="input-group room-group">
+                    <div class="input-group-addon">Room:</div>
+                    <input class="form-control" type="text"
+                           v-bind:value="session.room">
+                </div>
+            </div>
+            <div class="col-xs-5 text-right">
+                <a href="javascript:" class="btn btn-primary"
+                   v-on:click="openVote"
+                   v-if="session.roomUsers.length && !session.roomVote && ( !session.roomVoted || showVote)">Start Vote</a>
+                <a href="javascript:" class="btn btn-danger"
+                   v-on:click="closeVote"
+                   v-if="session.roomUsers.length && session.roomVote && !session.roomVoted">Stop Vote</a>
+                <a href="javascript:" class="btn btn-success"
+                   v-on:click="showVote = true"
+                   v-if="session.roomUsers.length && !session.roomVote && session.roomVoted && !showVote">Reveal Vote</a>
+            </div>
+        </div>
+
+        <br>
+        <br>
+
+        <ul class="list-group">
+            <li class="list-group-item"
+                v-if="!session.roomUsers.length"
+            >No users have joined the room yet!</li>
+
+            <li class="list-group-item"
+                v-for="user in session.roomUsers"
+            >
+                {{user}}
+                <span class="badge" v-if="session.roomVotes[user] && !showVote">&nbsp;&nbsp;</span>
+                <span class="badge" v-if="session.roomVotes[user] && showVote"
+                      v-html="$options.filters.buttonHTML(session.roomVotes[user])"
+                ></span>
+            </li>
+        </ul>
+
+        <div class="progress" v-if="session.roomUsers.length && (session.roomVote || session.roomVoted) && !showVote">
+            <div class="progress-bar progress-bar-striped"
+                 v-bind:class="{
+                    'active': session.roomVote,
+                    'progress-bar-success': session.roomVoted
+                 }"
+                 v-bind:style="{width: session.roomVotesPercent + '%'}">
+            </div>
+        </div>
+    </article>
+
+
+
+    <section class="container-fluid" v-if="showDebugLog">
+        <h5>Debug Log</h5>
+        <pre class="debug">{{debugLog | debugLogFilter}}</pre>
+    </section>
+
+    <footer class="container-fluid">
+    </footer>
+
+    <div class="loader" v-bind:class="{ 'is-loading': loading }">
+        <div class="spinner">
+            <i class="glyphicon glyphicon-refresh spin"></i>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
