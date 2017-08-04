@@ -1,0 +1,2 @@
+# ScrumPoker
+Simple ScrumPoker application
